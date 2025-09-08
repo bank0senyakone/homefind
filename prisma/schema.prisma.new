@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  available
+  rented
+  under_maintenance
+}
+
+enum ContractStatus {
+  active
+  expired
+  terminated
+}
+
+enum ProblemStatus {
+  pending
+  in_progress
+  resolved
+}
+
+enum UtilityType {
+  water
+  electric
+}
+
+enum OutstandingStatus {
+  unpaid
+  partially_paid
+  paid
+  overdue
+}
+
+enum CheckoutProblemStatus {
+  new
+  resolved
+  damage
+}
+
+model Users {
+  user_id     String   @id @default(uuid())
+  username    String   @db.VarChar(255)
+  email       String   @db.VarChar(255) @unique
+  phoneNumber String   @db.VarChar(20)
+  password    String   @db.VarChar(255)
+  role        String   @db.VarChar(50)
+  profile     String?  @db.VarChar(255)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  tenants     Tenant[]
+}
+
+model Tenant {
+  tenant_id   Int      @id @default(autoincrement())
+  user_id     String
+  profile     String?  @db.VarChar(255)
+  name        String   @db.VarChar(50)
+  phone       String   @db.VarChar(20)
+  email       String   @db.VarChar(255)
+  idcard      String   @db.VarChar(50)
+  address     String   @db.Text
+  Census      String?  @db.Text
+  user        Users    @relation(fields: [user_id], references: [user_id])
+  contracts   Contract[]
+  problems    Problem_notification[]
+}
+
+model Room {
+  room_id       Int      @id @default(autoincrement())
+  roomNumber    String   @db.VarChar(255)
+  status        RoomStatus
+  details       RoomDetails?
+  contracts     Contract[]
+  meterReadings MeterReading[]
+  problems      Problem_notification[]
+}
+
+model RoomDetails {
+  roomdetail_id Int      @id @default(autoincrement())
+  room_id       Int      @unique
+  type          String   @db.VarChar(50)
+  earnestmoney  Decimal  @db.Decimal(10, 2)
+  created_at    DateTime @default(now())
+  price         Decimal  @db.Decimal(10, 2)
+  floor         Int      @db.TinyInt
+  description   String?  @db.Text
+  room          Room     @relation(fields: [room_id], references: [room_id])
+}
+
+model Contract {
+  contract_id    Int       @id @default(autoincrement())
+  tenant_id      Int
+  room_id        Int
+  startDate      DateTime
+  endDate        DateTime
+  depositAmount  Decimal   @db.Decimal(10, 2)
+  status         ContractStatus
+  tenant         Tenant    @relation(fields: [tenant_id], references: [tenant_id])
+  room           Room      @relation(fields: [room_id], references: [room_id])
+  checkIn        CheckIn?
+  checkOut       CheckOut?
+  meterReadings  MeterReading[]
+  payments       Payment[]
+  outstandingPayments OutstandingPayment[]
+}
+
+model Problem_notification {
+  Problem_id               Int           @id @default(autoincrement())
+  room_id                 Int
+  tenant_id               Int
+  type                    String        @db.VarChar(255)
+  Problem_notification_date DateTime
+  status                  ProblemStatus
+  description             String?       @db.Text
+  tenant                  Tenant        @relation(fields: [tenant_id], references: [tenant_id])
+  room                    Room          @relation(fields: [room_id], references: [room_id])
+}
+
+model MeterReading {
+  meterReading_id Int      @id @default(autoincrement())
+  room_id         Int
+  contract_id     Int
+  month           String   @db.VarChar(20)
+  waterOld        Decimal  @db.Decimal(10, 2)
+  waterNew        Decimal  @db.Decimal(10, 2)
+  electricOld     Decimal  @db.Decimal(10, 2)
+  electricNew     Decimal  @db.Decimal(10, 2)
+  recordedDate    DateTime
+  room            Room     @relation(fields: [room_id], references: [room_id])
+  contract        Contract @relation(fields: [contract_id], references: [contract_id])
+}
+
+model UtilityRate {
+  utilityRate_id Int        @id @default(autoincrement())
+  type           UtilityType
+  ratePerUnit    Decimal    @db.Decimal(10, 2)
+  effectiveFrom  DateTime
+}
+
+model CheckIn {
+  checkIn_id   Int       @id @default(autoincrement())
+  contract_id  Int       @unique
+  checkInData  DateTime
+  remarks      String?   @db.Text
+  contract     Contract  @relation(fields: [contract_id], references: [contract_id])
+}
+
+model CheckOut {
+  checkOut_id   Int       @id @default(autoincrement())
+  contract_id   Int       @unique
+  checkOutDate  DateTime
+  remarks       String?   @db.Text
+  contract      Contract  @relation(fields: [contract_id], references: [contract_id])
+  problems      CheckoutProblem[]
+}
+
+model CheckoutProblem {
+  problem_id   Int                  @id @default(autoincrement())
+  checkout_id  Int
+  description  String               @db.VarChar(255)
+  status       CheckoutProblemStatus
+  damage_cost  Decimal              @db.Decimal(10, 2)
+  created_at   DateTime             @default(now())
+  checkOut     CheckOut            @relation(fields: [checkout_id], references: [checkOut_id])
+}
+
+model Payment {
+  payment_id   Int           @id @default(autoincrement())
+  contract_id  Int
+  totalAmount  Decimal       @db.Decimal(10, 2)
+  paymentDate  DateTime
+  contract     Contract      @relation(fields: [contract_id], references: [contract_id])
+  items        PaymentItem[]
+  slip         PaymentSlip?
+}
+
+model PaymentItem {
+  paymentItem_id Int      @id @default(autoincrement())
+  payment_id     Int
+  description    String   @db.VarChar(255)
+  amount         Decimal  @db.Decimal(10, 2)
+  payment        Payment  @relation(fields: [payment_id], references: [payment_id])
+}
+
+model OutstandingPayment {
+  outstandingPayment_id Int              @id @default(autoincrement())
+  contract_id           Int
+  dueDate               DateTime
+  amountDue             Decimal          @db.Decimal(10, 2)
+  status                OutstandingStatus
+  contract              Contract         @relation(fields: [contract_id], references: [contract_id])
+}
+
+model PaymentSlip {
+  paymentSlip_id Int      @id @default(autoincrement())
+  payment_id     Int      @unique
+  slipImageUrl   String   @db.VarChar(255)
+  submittedDate  DateTime
+  payment        Payment  @relation(fields: [payment_id], references: [payment_id])
+}

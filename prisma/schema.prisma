@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  available
+  rented
+  under_maintenance
+}
+
+enum ContractStatus {
+  active
+  expired
+  terminated
+}
+
+enum ProblemStatus {
+  pending
+  in_progress
+  resolved
+}
+
+enum UtilityType {
+  water
+  electric
+}
+
+enum OutstandingStatus {
+  unpaid
+  partially_paid
+  paid
+  overdue
+}
+
+enum CheckoutProblemStatus {
+  new
+  resolved
+  damage
+}
+
+model Users {
+  user_id     String   @id @default(auto()) @map("_id") @db.ObjectId
+  username    String
+  email       String   @unique
+  phoneNumber String
+  password    String
+  role        String
+  profile     String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  tenants     Tenant[]
+}
+
+model Tenant {
+  tenant_id String                 @id @default(auto()) @map("_id") @db.ObjectId
+  user_id   String                 @db.ObjectId
+  profile   String?
+  name      String
+  phone     String
+  email     String
+  idcard    String
+  address   String
+  Census    String?
+  user      Users                  @relation(fields: [user_id], references: [user_id])
+  contracts Contract[]
+  problems  Problem_notification[]
+}
+
+model Room {
+  room_id       String                 @id @default(auto()) @map("_id") @db.ObjectId
+  roomNumber    String
+  status        RoomStatus
+  details       RoomDetails?
+  contracts     Contract[]
+  meterReadings MeterReading[]
+  problems      Problem_notification[]
+}
+
+model RoomDetails {
+  roomdetail_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  room_id       String   @unique @db.ObjectId
+  type         String
+  earnestmoney Float
+  created_at   DateTime @default(now())
+  price        Float
+  floor        Int
+  description  String?
+  room          Room     @relation(fields: [room_id], references: [room_id])
+}
+
+model Contract {
+  contract_id         String               @id @default(auto()) @map("_id") @db.ObjectId
+  tenant_id           String               @db.ObjectId
+  room_id             String               @db.ObjectId
+  startDate           DateTime
+  endDate             DateTime
+  depositAmount       Float
+  status              ContractStatus
+  tenant              Tenant               @relation(fields: [tenant_id], references: [tenant_id])
+  room                Room                 @relation(fields: [room_id], references: [room_id])
+  checkIn             CheckIn?
+  checkOut            CheckOut?
+  meterReadings       MeterReading[]
+  payments            Payment[]
+  outstandingPayments OutstandingPayment[]
+}
+
+model Problem_notification {
+  problem_id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  room_id                   String        @db.ObjectId
+  tenant_id                 String        @db.ObjectId
+  type                      String
+  Problem_notification_date DateTime
+  status                    ProblemStatus
+  description               String?
+  tenant                    Tenant        @relation(fields: [tenant_id], references: [tenant_id])
+  room                      Room          @relation(fields: [room_id], references: [room_id])
+}
+
+model MeterReading {
+  meterReading_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  room_id         String   @db.ObjectId
+  contract_id     String   @db.ObjectId
+  month        DateTime
+  waterOld     Float
+  waterNew     Float
+  electricOld  Float
+  electricNew  Float
+  recordedDate DateTime
+  room            Room     @relation(fields: [room_id], references: [room_id])
+  contract        Contract @relation(fields: [contract_id], references: [contract_id])
+}
+
+model UtilityRate {
+  utilityRate_id String      @id @default(auto()) @map("_id") @db.ObjectId
+  type          UtilityType
+  ratePerUnit   Float
+  effectiveFrom DateTime
+}
+
+model CheckIn {
+  checkIn_id  String   @id @default(auto()) @map("_id") @db.ObjectId
+  contract_id String   @unique @db.ObjectId
+  checkInData DateTime
+  remarks     String?
+  contract    Contract @relation(fields: [contract_id], references: [contract_id])
+}
+
+model CheckOut {
+  checkOut_id  String            @id @default(auto()) @map("_id") @db.ObjectId
+  contract_id  String            @unique @db.ObjectId
+  checkOutDate DateTime
+  remarks      String?
+  contract     Contract          @relation(fields: [contract_id], references: [contract_id])
+  problems     CheckoutProblem[]
+}
+
+model CheckoutProblem {
+  checkoutProblem_id String                @id @default(auto()) @map("_id") @db.ObjectId
+  checkout_id        String                @db.ObjectId
+  description String
+  status      CheckoutProblemStatus
+  damage_cost Float
+  created_at  DateTime              @default(now())
+  checkOut           CheckOut              @relation(fields: [checkout_id], references: [checkOut_id])
+}
+
+model Payment {
+  payment_id  String        @id @default(auto()) @map("_id") @db.ObjectId
+  contract_id String        @db.ObjectId
+  totalAmount Float
+  paymentDate DateTime
+  contract    Contract      @relation(fields: [contract_id], references: [contract_id])
+  items       PaymentItem[]
+  slip        PaymentSlip?
+}
+
+model PaymentItem {
+  paymentItem_id String  @id @default(auto()) @map("_id") @db.ObjectId
+  payment_id     String  @db.ObjectId
+  description String
+  amount      Float
+  payment        Payment @relation(fields: [payment_id], references: [payment_id])
+}
+
+model OutstandingPayment {
+  outstandingPayment_id String            @id @default(auto()) @map("_id") @db.ObjectId
+  contract_id           String            @db.ObjectId
+  dueDate    DateTime
+  amountDue  Float
+  status     OutstandingStatus
+  contract              Contract          @relation(fields: [contract_id], references: [contract_id])
+}
+
+model PaymentSlip {
+  paymentSlip_id String   @id @default(auto()) @map("_id") @db.ObjectId
+  payment_id     String   @unique @db.ObjectId
+  slipImageUrl  String
+  submittedDate DateTime
+  payment        Payment  @relation(fields: [payment_id], references: [payment_id])
+}
