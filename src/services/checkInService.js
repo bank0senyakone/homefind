@@ -24,7 +24,7 @@ export const createCheckIn = async (data) => {
     return await prisma.checkIn.create({
       data: {
         contract_id: data.contract_id,
-        checkInData: new Date(data.checkInData),
+        checkInDate: new Date(data.checkInDate),
         remarks: data.remarks,
       },
       include: {

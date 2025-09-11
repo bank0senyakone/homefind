@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Service API Tester</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            display: flex;
+            gap: 40px;
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            width: 45%;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, select, button {
+            padding: 8px;
+            font-size: 1em;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-radius: 5px;
+        }
+        .api-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .action-group {
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        #image-preview {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        #image-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <section>
+        <h2>API Actions</h2>
+        <div class="api-actions">
+            <!-- Get All Rooms -->
+            <div class="action-group">
+                <h3>Get All Rooms</h3>
+                <button id="getAllRoomsBtn">Fetch All Rooms</button>
+            </div>
+
+            <!-- Get Room by ID/Number -->
+            <div class="action-group">
+                <h3>Get Room by ID / Number</h3>
+                <form id="getRoomForm">
+                    <label for="getRoomId">Room ID or Number:</label>
+                    <input type="text" id="getRoomId" required>
+                    <button type="submit">Get Room</button>
+                </form>
+            </div>
+
+            <!-- Delete Room -->
+            <div class="action-group">
+                <h3>Delete Room by ID</h3>
+                <form id="deleteRoomForm">
+                    <label for="deleteRoomId">Room ID:</label>
+                    <input type="text" id="deleteRoomId" required>
+                    <button type="submit" style="background-color: #dc3545;">Delete Room</button>
+                </form>
+            </div>
+        </div>
+        <hr>
+        <h2>Response:</h2>
+        <pre id="response"></pre>
+        <div id="image-preview"></div>
+    </section>
+
+    <section>
+        <h2>Create Room</h2>
+        <form id="uploadForm">
+            <label for="roomNumber">Room Number:</label>
+            <input type="text" id="roomNumber" name="roomNumber" required>
+
+            <label for="status">Status:</label>
+            <select id="status" name="status" required>
+                <option value="available">Available</option>
+                <option value="rented">Rented</option>
+                <option value="under_maintenance">Under Maintenance</option>
+            </select>
+
+            <label for="type">Type:</label>
+            <input type="text" id="type" name="type" value="Standard" required>
+
+            <label for="price">Price:</label>
+            <input type="number" id="price" name="price" value="1000" required>
+            
+            <label for="earnestmoney">Earnest Money:</label>
+            <input type="number" id="earnestmoney" name="earnestmoney" value="500" required>
+
+            <label for="floor">Floor:</label>
+            <input type="number" id="floor" name="floor" value="1" required>
+
+            <label for="description">Description:</label>
+            <input type="text" id="description" name="description">
+
+            <label for="coverImage">Cover Image (1 file):</label>
+            <input type="file" id="coverImage" name="coverImage" accept="image/*">
+
+            <label for="images">Other Images (up to 5 files):</label>
+            <input type="file" id="images" name="images" accept="image/*" multiple>
+
+            <button type="submit">Create Room</button>
+        </form>
+    </section>
+
+    <script>
+        const responseContainer = document.getElementById('response');
+        const imagePreviewContainer = document.getElementById('image-preview');
+        const API_BASE_URL = 'http://localhost:8000/api';
+
+        // Function to clear previous results
+        const clearResults = () => {
+            responseContainer.textContent = '';
+            imagePreviewContainer.innerHTML = '';
+        }
+
+        // Function to display results and images
+        const showResponse = (data) => {
+            clearResults();
+            responseContainer.textContent = JSON.stringify(data, null, 2);
+
+            // Handle single object or array of objects
+            const items = Array.isArray(data) ? data : [data];
+
+            items.forEach(item => {
+                const details = item.details;
+                if (details) {
+                    if (details.coverImage) {
+                        const img = document.createElement('img');
+                        img.src = details.coverImage;
+                        img.title = 'Cover Image';
+                        imagePreviewContainer.appendChild(img);
+                    }
+                    if (details.images && details.images.length > 0) {
+                        details.images.forEach(imageUrl => {
+                            const img = document.createElement('img');
+                            img.src = imageUrl;
+                            img.title = 'Image';
+                            imagePreviewContainer.appendChild(img);
+                        });
+                    }
+                }
+            });
+        };
+
+        // Function to show errors
+        const showError = (error, message = 'An error occurred. Check the console.') => {
+            clearResults();
+            console.error(error);
+            responseContainer.textContent = message;
+        };
+
+        // 1. Create Room
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            clearResults();
+            responseContainer.textContent = 'Creating room...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/room/insert`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                showResponse(result);
+            } catch (error) {
+                showError(error, 'Error creating room. Check the server logs and console.');
+            }
+        });
+
+        // 2. Get All Rooms
+        document.getElementById('getAllRoomsBtn').addEventListener('click', async () => {
+            clearResults();
+            responseContainer.textContent = 'Fetching all rooms...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/room/selAll`);
+                const result = await response.json();
+                showResponse(result);
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        // 3. Get Room by ID/Number
+        document.getElementById('getRoomForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const roomId = document.getElementById('getRoomId').value;
+            clearResults();
+            responseContainer.textContent = `Fetching room ${roomId}...`;
+            try {
+                const response = await fetch(`${API_BASE_URL}/room/selOne/${roomId}`);
+                const result = await response.json();
+                showResponse(result);
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        // 4. Delete Room
+        document.getElementById('deleteRoomForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const roomId = document.getElementById('deleteRoomId').value;
+            if (!confirm(`Are you sure you want to delete room with ID: ${roomId}?`)) {
+                return;
+            }
+            clearResults();
+            responseContainer.textContent = `Deleting room ${roomId}...`;
+            try {
+                const response = await fetch(`${API_BASE_URL}/room/delete/${roomId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                showResponse(result);
+            } catch (error) {
+                showError(error);
+            }
+        });
+    </script>
+</body>
+</html>

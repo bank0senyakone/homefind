@@ -10,18 +10,18 @@ import {
 class CheckInController {
   async createCheckIn(req, res) {
     try {
-      const { contract_id, checkInData, remarks } = req.body;
+      const { contract_id, checkInDate, remarks } = req.body;
 
       // Validate required fields
-      if (!contract_id || !checkInData) {
+      if (!contract_id || !checkInDate) {
         return res.status(400).json({
           error: "Required fields: contract_id, checkInData",
         });
       }
 
       // Validate date format
-      const checkInDate = new Date(checkInData);
-      if (isNaN(checkInDate.getTime())) {
+      const _checkInDate = new Date(checkInDate);
+      if (isNaN(_checkInDate.getTime())) {
         return res.status(400).json({
           error: "Invalid date format for checkInData",
         });

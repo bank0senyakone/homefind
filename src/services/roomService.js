@@ -1,7 +1,40 @@
 import prisma from '../prisma/prisma.js';
+import cloudinary from '../config/cloudinary.js';
+
 // ແກ້ແລ້ວ ຍັງແກ້ roomNumber ຫ້າມສ້ຳກັນ
 export const createRoom = async (roomData) => {
-    const { roomNumber, status, type, price, earnestmoney, floor, description } = roomData;
+    const { roomNumber, status, type, price, earnestmoney, floor, description, coverImage, images } = roomData;
+    
+    let coverImageUrl = null;
+    let imageUrls = [];
+
+    // Upload cover image
+    if (coverImage) {
+        try {
+            const result = await cloudinary.uploader.upload(coverImage.path, {
+                folder: 'rooms/covers',
+                use_filename: true
+            });
+            coverImageUrl = result.secure_url;
+        } catch (error) {
+            throw new Error('Error uploading cover image to Cloudinary: ' + error.message);
+        }
+    }
+
+    // Upload additional images
+    if (images && images.length > 0) {
+        try {
+            for (const image of images) {
+                const result = await cloudinary.uploader.upload(image.path, {
+                    folder: 'rooms/gallery',
+                    use_filename: true
+                });
+                imageUrls.push(result.secure_url);
+            }
+        } catch (error) {
+            throw new Error('Error uploading additional images to Cloudinary: ' + error.message);
+        }
+    }
 
     const existingRoom = await prisma.room.findFirst({
         where: { roomNumber },
@@ -21,7 +54,9 @@ export const createRoom = async (roomData) => {
                     price,
                     earnestmoney,
                     floor,
-                    description
+                    description,
+                    coverImage: coverImageUrl,
+                    images: imageUrls
                 }
             }
         },
@@ -63,7 +98,65 @@ export const getRoomByIdOrNumber = async (searchValue) => {
 };
 
 export const updateRoom = async (roomId, roomData) => {
-    const { roomNumber, status, type, price, earnestmoney, floor, description } = roomData;
+    const { roomNumber, status, type, price, earnestmoney, floor, description, coverImage, images } = roomData;
+    
+    let coverImageUrl = undefined;
+    let imageUrls = undefined;
+
+    // Handle cover image update
+    if (coverImage) {
+        try {
+            const existingRoom = await prisma.room.findUnique({
+                where: { room_id: roomId },
+                include: { details: true }
+            });
+            
+            // Delete previous cover image if exists
+            if (existingRoom.details?.coverImage) {
+                const publicId = existingRoom.details.coverImage.split('/').slice(-1)[0].split('.')[0];
+                await cloudinary.uploader.destroy(`rooms/covers/${publicId}`);
+            }
+            
+            // Upload new cover image
+            const result = await cloudinary.uploader.upload(coverImage.path, {
+                folder: 'rooms/covers',
+                use_filename: true
+            });
+            coverImageUrl = result.secure_url;
+        } catch (error) {
+            throw new Error('Error handling cover image upload: ' + error.message);
+        }
+    }
+
+    // Handle additional images update
+    if (images && images.length > 0) {
+        try {
+            const existingRoom = await prisma.room.findUnique({
+                where: { room_id: roomId },
+                include: { details: true }
+            });
+            
+            // Delete previous images if they exist
+            if (existingRoom.details?.images && existingRoom.details.images.length > 0) {
+                for (const imageUrl of existingRoom.details.images) {
+                    const publicId = imageUrl.split('/').slice(-1)[0].split('.')[0];
+                    await cloudinary.uploader.destroy(`rooms/gallery/${publicId}`);
+                }
+            }
+            
+            // Upload new images
+            imageUrls = [];
+            for (const image of images) {
+                const result = await cloudinary.uploader.upload(image.path, {
+                    folder: 'rooms/gallery',
+                    use_filename: true
+                });
+                imageUrls.push(result.secure_url);
+            }
+        } catch (error) {
+            throw new Error('Error handling additional images upload: ' + error.message);
+        }
+    }
     return await prisma.room.update({
         where: { room_id: (roomId) },
         data: {
@@ -75,7 +168,9 @@ export const updateRoom = async (roomId, roomData) => {
                     price,
                     earnestmoney,
                     floor,
-                    description
+                    description,
+                    ...(coverImageUrl && { coverImage: coverImageUrl }),
+                    ...(imageUrls && { images: imageUrls })
                 }
             }
         },

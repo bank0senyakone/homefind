@@ -122,7 +122,7 @@ export default class AuthService {
       },
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: _ ,...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 

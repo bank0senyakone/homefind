@@ -34,9 +34,9 @@ router.delete(`${user}/users/:id`, UserController.deleteUser);
 // room
 const room = "/room";
 router.get(`${room}/selAll`,RoomController.getAllRooms);
-router.post(`${room}/insert`,RoomController.createRoom);
-router.get(`${room}/selOne/:id`,RoomController.getRoomByIdOrNumber);
-router.put(`${room}/update/:id`,RoomController.updateRoom);
+router.post(`${room}/insert`, RoomController.uploadImages, RoomController.createRoom);
+router.get(`${room}/selOne/:id`, RoomController.getRoomByIdOrNumber);
+router.put(`${room}/update/:id`, RoomController.uploadImages, RoomController.updateRoom);
 router.delete(`${room}/delete/:id`,RoomController.deleteRoom);
 // checkin
 const checkin = "/checkin"

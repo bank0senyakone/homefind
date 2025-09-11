@@ -68,7 +68,7 @@ model Tenant {
   email     String
   idcard    String
   address   String
-  Census    String?
+  Censusimgurl    String?
   user      Users                  @relation(fields: [user_id], references: [user_id])
   contracts Contract[]
   problems  Problem_notification[]
@@ -93,6 +93,8 @@ model RoomDetails {
   price        Float
   floor        Int
   description  String?
+  coverImage    String?
+  images        String[]
   room          Room     @relation(fields: [room_id], references: [room_id])
 }
 
@@ -149,7 +151,7 @@ model UtilityRate {
 model CheckIn {
   checkIn_id  String   @id @default(auto()) @map("_id") @db.ObjectId
   contract_id String   @unique @db.ObjectId
-  checkInData DateTime
+  checkInDate DateTime
   remarks     String?
   contract    Contract @relation(fields: [contract_id], references: [contract_id])
 }
