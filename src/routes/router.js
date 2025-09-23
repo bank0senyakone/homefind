@@ -10,6 +10,7 @@ import outstandingPaymentController from "../controllers/outstandingPaymentContr
 import paymentController from "../controllers/paymentController.js";
 import utilityRateController from "../controllers/utilityRateController.js";
 import auth from "../middleware/auth.js";
+import issueRoutes from "./issue.routes.js";
 const router = express.Router();
 
 const tenant = "/tenant";
@@ -93,5 +94,17 @@ router.get(`${utilityRate}/current/:type`,utilityRateController.getCurrentUtilit
 router.get(`${utilityRate}/selOne/:id`,utilityRateController.getUtilityRateById );
 router.put(`${utilityRate}/update/:id`,utilityRateController.updateUtilityRate );
 router.delete(`${utilityRate}/delete/:id`,utilityRateController.deleteUtilityRate );
+router.get(`${utilityRate}/history/:type`, utilityRateController.getUtilityRateHistory);
+
+// Bill Generation
+import BillController from "../controllers/BillGenerateController.js";
+const bill = "/bill";
+router.post(`${bill}/generate-room/:roomId`, BillController.generateMonthlyBillForRoom);
+router.post(`${bill}/generate-multiple`, BillController.generateMonthlyBillsForMultipleRooms);
+router.post(`${bill}/generate-all`, BillController.generateMonthlyBillsForAllActiveRooms);
+router.get(`${bill}/view`, BillController.getMonthlyBillByRoom);
+router.get(`${bill}/statistics`, BillController.getMonthlyBillStatistics);
+
+router.use('/issues', issueRoutes);
 
 export default router;

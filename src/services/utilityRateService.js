@@ -70,7 +70,7 @@ export const getUtilityRateById = async (utilityRateId) => {
     try {
         return await prisma.utilityRate.findUnique({
             where: { 
-                utilityRate_id: parseInt(utilityRateId) 
+                utilityRate_id:utilityRateId 
             }
         });
     } catch (error) {
@@ -97,7 +97,7 @@ export const updateUtilityRate = async (utilityRateId, data) => {
 
         return await prisma.utilityRate.update({
             where: { 
-                utilityRate_id: parseInt(utilityRateId) 
+                utilityRate_id: utilityRateId
             },
             data: {
                 type: data.type,
@@ -114,7 +114,7 @@ export const deleteUtilityRate = async (utilityRateId) => {
     try {
         const utilityRate = await prisma.utilityRate.findUnique({
             where: { 
-                utilityRate_id: parseInt(utilityRateId) 
+                utilityRate_id: utilityRateId
             }
         });
 
@@ -124,13 +124,13 @@ export const deleteUtilityRate = async (utilityRateId) => {
 
         // Check if this is the only current rate for its type
         const currentRate = await getCurrentUtilityRate(utilityRate.type);
-        if (currentRate && currentRate.utilityRate_id === parseInt(utilityRateId)) {
+        if (currentRate && currentRate.utilityRate_id === utilityRateId) {
             throw new Error('Cannot delete the current active utility rate');
         }
 
         return await prisma.utilityRate.delete({
             where: { 
-                utilityRate_id: parseInt(utilityRateId) 
+                utilityRate_id: utilityRateId
             }
         });
     } catch (error) {

@@ -5,7 +5,7 @@ export const createCheckOut = async (data) => {
       // First check if the contract exists and has a check-in but no check-out
       const existingContract = await prisma.contract.findUnique({
         where: {
-          contract_id: parseInt(data.contract_id),
+          contract_id: data.contract_id,
         },
         include: {
           checkIn: true,
@@ -30,7 +30,7 @@ export const createCheckOut = async (data) => {
       // Check for outstanding payments
       const outstandingPayments = await prisma.outstandingPayment.findMany({
         where: {
-          contract_id: parseInt(data.contract_id),
+          contract_id: data.contract_id,
           status: {
             in: ["unpaid", "partially_paid", "overdue"],
           },
@@ -45,7 +45,7 @@ export const createCheckOut = async (data) => {
       return await prisma.$transaction(async (prisma) => {
         const checkOut = await prisma.checkOut.create({
           data: {
-            contract_id: parseInt(data.contract_id),
+            contract_id: data.contract_id,
             checkOutDate: new Date(data.checkOutDate),
             remarks: data.remarks,
             problems: {
@@ -90,7 +90,7 @@ export const createCheckOut = async (data) => {
         // Update contract status
         await prisma.contract.update({
           where: {
-            contract_id: parseInt(data.contract_id),
+            contract_id: data.contract_id,
           },
           data: {
             status: "terminated",
@@ -141,7 +141,7 @@ export const getCheckOutById = async (checkOutId) => {
     try {
       return await prisma.checkOut.findUnique({
         where: {
-          checkOut_id: parseInt(checkOutId),
+          checkOut_id:checkOutId,
         },
         include: {
           contract: {
@@ -174,7 +174,7 @@ export const getCheckOutByContractId = async (contractId) => {
     try {
       return await prisma.checkOut.findUnique({
         where: {
-          contract_id: parseInt(contractId),
+          contract_id:contractId,
         },
         include: {
           contract: {
@@ -205,19 +205,19 @@ export const getCheckOutByContractId = async (contractId) => {
 
 export const updateCheckOut = async (checkOutId, data) => {
     try {
-      const checkOutIdInt = parseInt(checkOutId);
+      const checkOutIdStr = checkOutId;
       return await prisma.$transaction(async (prisma) => {
         // If there are problem updates
         if (data.problems) {
           // Delete removed problems
           const existingProblems = await prisma.checkoutProblem.findMany({
-            where: { checkout_id: checkOutIdInt },
+            where: { checkout_id: checkOutIdStr },
           });
 
           const existingProblemIds = existingProblems.map((p) => p.problem_id);
           const updatedProblemIds = data.problems
             .filter((p) => p.problem_id)
-            .map((p) => parseInt(p.problem_id));
+            .map((p) => p.problem_id);
 
           const problemsToDelete = existingProblemIds.filter(
             (id) => !updatedProblemIds.includes(id)
@@ -239,7 +239,7 @@ export const updateCheckOut = async (checkOutId, data) => {
               // Update existing problem
               await prisma.checkoutProblem.update({
                 where: {
-                  problem_id: parseInt(problem.problem_id),
+                  problem_id: problem.problem_id,
                 },
                 data: {
                   description: problem.description,
@@ -251,7 +251,7 @@ export const updateCheckOut = async (checkOutId, data) => {
               // Create new problem
               await prisma.checkoutProblem.create({
                 data: {
-                  checkout_id: checkOutIdInt,
+                  checkout_id: checkOutIdStr,
                   description: problem.description,
                   status: problem.status || "new",
                   damage_cost: parseFloat(problem.damage_cost || 0),
@@ -265,7 +265,7 @@ export const updateCheckOut = async (checkOutId, data) => {
         // Update check-out
         return await prisma.checkOut.update({
           where: {
-            checkOut_id: checkOutIdInt,
+            checkOut_id: checkOutIdStr,
           },
           data: {
             checkOutDate: data.checkOutDate
@@ -303,7 +303,7 @@ export const updateCheckOut = async (checkOutId, data) => {
 
 export const deleteCheckOut = async (checkOutId) => {
     try {
-      const checkOutIdInt = parseInt(checkOutId);
+      const checkOutIdInt = checkOutId;
 
       return await prisma.$transaction(async (prisma) => {
         // Find check-out first
@@ -376,7 +376,7 @@ export const getCheckoutProblems = async (checkOutId) => {
     try {
       return await prisma.checkoutProblem.findMany({
         where: {
-          checkout_id: parseInt(checkOutId),
+          checkout_id: checkOutId,
         },
         orderBy: {
           created_at: "desc",
@@ -401,7 +401,7 @@ export const updateProblemStatus = async (problemId, status, resolution_notes, d
 
       return await prisma.checkoutProblem.update({
         where: {
-          problem_id: parseInt(problemId),
+          problem_id: problemId,
         },
         data: {
           status,

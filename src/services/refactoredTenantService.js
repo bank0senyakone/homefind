@@ -14,6 +14,9 @@ export default class refactoredTenantService {
         contracts: {
           where: {
             status: "active",
+            room: {
+              is: {},
+            },
           },
           include: {
             room: true,
@@ -32,7 +35,7 @@ export default class refactoredTenantService {
       include: {
         user: {
           select: {
-            username: true,
+            username: true, 
             email: true,
             phoneNumber: true,
             role: true,

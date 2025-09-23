@@ -5,6 +5,7 @@ import {
   getUtilityRateById as _getUtilityRateById,
   updateUtilityRate as _updateUtilityRate,
   deleteUtilityRate as _deleteUtilityRate,
+  getUtilityRateHistory as _getUtilityRateHistory,
 } from "../services/utilityRateService.js";
 
 class UtilityRateController {
@@ -65,6 +66,24 @@ class UtilityRateController {
     try {
       await _deleteUtilityRate(req.params.id);
       res.json({ message: "Utility rate deleted successfully" });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async getUtilityRateHistory(req, res) {
+    try {
+      const { type } = req.params;
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ 
+          error: "Both startDate and endDate are required query parameters" 
+        });
+      }
+
+      const history = await _getUtilityRateHistory(type, startDate, endDate);
+      res.json(history);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

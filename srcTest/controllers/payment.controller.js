@@ -1,0 +1,355 @@
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+class PaymentController {
+  // Get all payments with filtering and pagination
+  async getPayments(req, res) {
+    try {
+      const { 
+        status, 
+        roomId, 
+        tenantId,
+        month,
+        year,
+        page = 1, 
+        limit = 20 
+      } = req.query;
+
+      // Build filter conditions
+      const where = {};
+      if (status) where.status = status;
+      if (roomId) where.roomId = roomId;
+      if (tenantId) where.tenantId = tenantId;
+      
+      // Filter by month and year if provided
+      if (month || year) {
+        where.dueDate = {};
+        if (month) {
+          const startDate = new Date(year || new Date().getFullYear(), month - 1, 1);
+          const endDate = new Date(year || new Date().getFullYear(), month, 0);
+          where.dueDate = {
+            gte: startDate,
+            lte: endDate
+          };
+        } else if (year) {
+          const startDate = new Date(year, 0, 1);
+          const endDate = new Date(year, 11, 31);
+          where.dueDate = {
+            gte: startDate,
+            lte: endDate
+          };
+        }
+      }
+
+      // Get counts for summary
+      const [total, totalPending, totalPaid, totalOverdue] = await Promise.all([
+        prisma.payment.count({ where }),
+        prisma.payment.count({ where: { ...where, status: 'PENDING' } }),
+        prisma.payment.count({ where: { ...where, status: 'PAID' } }),
+        prisma.payment.count({ where: { ...where, status: 'OVERDUE' } })
+      ]);
+
+      // Get payments with pagination
+      const payments = await prisma.payment.findMany({
+        where,
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        take: parseInt(limit),
+        orderBy: [
+          { dueDate: 'desc' },
+          { createdAt: 'desc' }
+        ],
+        include: {
+          room: {
+            select: {
+              roomNumber: true,
+              buildingName: true
+            }
+          },
+          tenant: {
+            select: {
+              firstName: true,
+              lastName: true,
+              phone: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          payments,
+          summary: {
+            totalPending,
+            totalPaid,
+            totalOverdue
+          },
+          pagination: {
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil(total / parseInt(limit))
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Get payments error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Get single payment details
+  async getPayment(req, res) {
+    try {
+      const { id } = req.params;
+
+      const payment = await prisma.payment.findUnique({
+        where: { id },
+        include: {
+          room: true,
+          tenant: true,
+          contract: true
+        }
+      });
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: payment
+      });
+    } catch (error) {
+      console.error('Get payment details error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Create new payment bill
+  async createPayment(req, res) {
+    try {
+      const {
+        roomId,
+        tenantId,
+        contractId,
+        title,
+        dueDate,
+        details,
+        paymentLink,
+        notes
+      } = req.body;
+
+      // Validate room and tenant
+      const [room, tenant, contract] = await Promise.all([
+        prisma.room.findUnique({ where: { id: roomId } }),
+        prisma.tenant.findUnique({ where: { id: tenantId } }),
+        contractId ? prisma.contract.findUnique({ where: { id: contractId } }) : null
+      ]);
+
+      if (!room || !tenant) {
+        return res.status(404).json({
+          success: false,
+          message: 'Room or tenant not found'
+        });
+      }
+
+      // Generate bill number
+      const date = new Date();
+      const billCount = await prisma.payment.count({
+        where: {
+          createdAt: {
+            gte: new Date(date.getFullYear(), date.getMonth(), 1),
+            lt: new Date(date.getFullYear(), date.getMonth() + 1, 1)
+          }
+        }
+      });
+
+      const billNumber = `INV${date.getFullYear()}${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, '0')}${(billCount + 1).toString().padStart(3, '0')}`;
+
+      // Calculate total amount
+      const totalAmount = 
+        details.roomRent +
+        details.waterFee +
+        details.electricityFee +
+        details.commonFee +
+        (details.otherFees || []).reduce((sum, fee) => sum + fee.amount, 0);
+
+      // Create payment
+      const payment = await prisma.payment.create({
+        data: {
+          billNumber,
+          roomId,
+          tenantId,
+          contractId,
+          title,
+          dueDate: new Date(dueDate),
+          status: 'PENDING',
+          paymentLink,
+          roomRent: details.roomRent,
+          waterFee: details.waterFee,
+          electricityFee: details.electricityFee,
+          commonFee: details.commonFee,
+          otherFees: details.otherFees || [],
+          totalAmount,
+          notes
+        }
+      });
+
+      res.status(201).json({
+        success: true,
+        data: payment
+      });
+    } catch (error) {
+      console.error('Create payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Update payment status (mark as paid)
+  async updatePaymentStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { 
+        status, 
+        paidDate, 
+        receiptNumber,
+        receiptUrl,
+        notes 
+      } = req.body;
+
+      // Validate payment exists
+      const payment = await prisma.payment.findUnique({
+        where: { id }
+      });
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      // Update payment
+      const updatedPayment = await prisma.payment.update({
+        where: { id },
+        data: {
+          status,
+          paidDate: status === 'PAID' ? new Date(paidDate) : null,
+          receiptNumber: status === 'PAID' ? receiptNumber : null,
+          receiptUrl: status === 'PAID' ? receiptUrl : null,
+          notes: notes || payment.notes
+        }
+      });
+
+      res.json({
+        success: true,
+        data: updatedPayment
+      });
+    } catch (error) {
+      console.error('Update payment status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Bulk update overdue payments
+  async updateOverduePayments(req, res) {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Find all pending payments past their due date
+      const overduePayments = await prisma.payment.findMany({
+        where: {
+          status: 'PENDING',
+          dueDate: {
+            lt: today
+          }
+        }
+      });
+
+      // Update status to OVERDUE
+      await prisma.payment.updateMany({
+        where: {
+          id: {
+            in: overduePayments.map(p => p.id)
+          }
+        },
+        data: {
+          status: 'OVERDUE'
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Updated ${overduePayments.length} overdue payments`
+      });
+    } catch (error) {
+      console.error('Update overdue payments error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  // Delete payment (only if pending and no receipt)
+  async deletePayment(req, res) {
+    try {
+      const { id } = req.params;
+
+      // Check payment status
+      const payment = await prisma.payment.findUnique({
+        where: { id }
+      });
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      if (payment.status !== 'PENDING' || payment.receiptNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Can only delete pending payments without receipts'
+        });
+      }
+
+      await prisma.payment.delete({
+        where: { id }
+      });
+
+      res.json({
+        success: true,
+        message: 'Payment deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete payment error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+}
+
+export default new PaymentController();

@@ -14,7 +14,6 @@ export const createMeterReading = async (data) => {
       if (!room) {
         throw new Error('Room not found');
       }
-
       // Validate contract exists
       const contract = await prisma.contract.findUnique({
         where: { contract_id: data.contract_id }

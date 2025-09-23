@@ -58,13 +58,36 @@
         #image-preview {
             margin-top: 20px;
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            flex-wrap: wrap;
         }
-        #image-preview img {
+        .room-container {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .room-container h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .cover-image {
+            cursor: pointer;
             max-width: 150px;
             max-height: 150px;
             border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .other-images {
+            display: none; /* Hidden by default */
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .other-images img {
+            max-width: 100px;
+            max-height: 100px;
+            border: 1px solid #eee;
             border-radius: 4px;
         }
     </style>
@@ -160,27 +183,45 @@
             clearResults();
             responseContainer.textContent = JSON.stringify(data, null, 2);
 
-            // Handle single object or array of objects
-            const items = Array.isArray(data) ? data : [data];
+            const items = Array.isArray(data) ? data : (data.details ? [data] : []);
 
             items.forEach(item => {
-                const details = item.details;
-                if (details) {
-                    if (details.coverImage) {
-                        const img = document.createElement('img');
-                        img.src = details.coverImage;
-                        img.title = 'Cover Image';
-                        imagePreviewContainer.appendChild(img);
-                    }
-                    if (details.images && details.images.length > 0) {
-                        details.images.forEach(imageUrl => {
-                            const img = document.createElement('img');
-                            img.src = imageUrl;
-                            img.title = 'Image';
-                            imagePreviewContainer.appendChild(img);
-                        });
-                    }
+                if (!item.details) return;
+
+                const roomContainer = document.createElement('div');
+                roomContainer.className = 'room-container';
+
+                const roomNumber = item.details.roomNumber || `Room ID: ${item.details.id}`;
+                const roomTitle = document.createElement('h4');
+                roomTitle.textContent = `Room: ${roomNumber}`;
+                roomContainer.appendChild(roomTitle);
+
+                const otherImagesContainer = document.createElement('div');
+                otherImagesContainer.className = 'other-images';
+
+                if (item.details.coverImage) {
+                    const coverImg = document.createElement('img');
+                    coverImg.src = item.details.coverImage;
+                    coverImg.title = 'Cover Image - Click to see more';
+                    coverImg.className = 'cover-image';
+                    coverImg.onclick = () => {
+                        const otherImages = roomContainer.querySelector('.other-images');
+                        otherImages.style.display = otherImages.style.display === 'none' || otherImages.style.display === '' ? 'flex' : 'none';
+                    };
+                    roomContainer.appendChild(coverImg);
                 }
+
+                if (item.details.images && item.details.images.length > 0) {
+                    item.details.images.forEach(imageUrl => {
+                        const img = document.createElement('img');
+                        img.src = imageUrl;
+                        img.title = 'Image';
+                        otherImagesContainer.appendChild(img);
+                    });
+                }
+                
+                roomContainer.appendChild(otherImagesContainer);
+                imagePreviewContainer.appendChild(roomContainer);
             });
         };
 
