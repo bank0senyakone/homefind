@@ -295,6 +295,7 @@ enum UserRole {
   ADMIN
   OWNER
   STAFF
+  USER
 }
 
 enum RoomType {

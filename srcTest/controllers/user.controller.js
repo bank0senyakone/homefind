@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma  from '../config/prisma.js';
 import bcrypt from 'bcryptjs';
-const prisma = new PrismaClient();
 
 class UserController {
   // Get all users with filtering and pagination

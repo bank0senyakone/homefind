@@ -6,36 +6,30 @@ const authMiddleware = async (req, res, next) => {
   try {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
-
     if (!token) {
       return res.status(401).json({
         success: false,
         message: 'No authentication token, access denied'
       });
     }
-
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
     // Check if user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.id }
     });
-
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
         message: 'User not found or inactive'
       });
     }
-
     // Add user info to request
     req.user = {
       id: user.id,
       username: user.username,
       role: user.role
     };
-
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -45,7 +39,6 @@ const authMiddleware = async (req, res, next) => {
     });
   }
 };
-
 // Role-based access control middleware
 const checkRole = (roles) => {
   return (req, res, next) => {
@@ -58,5 +51,4 @@ const checkRole = (roles) => {
     next();
   };
 };
-
 export { authMiddleware, checkRole };

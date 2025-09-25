@@ -26,7 +26,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/checkinout', checkInOutRoutes);
+app.use('/api/checkin-out', checkInOutRoutes);
 app.use('/api/issues', issueRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);

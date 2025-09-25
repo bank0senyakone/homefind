@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma  from '../config/prisma.js';
 class RoomController {
   // Get all rooms with filtering and pagination
   async getRooms(req, res) {

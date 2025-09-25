@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+
+import prisma  from '../config/prisma.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-const prisma = new PrismaClient();
-
 class AuthController {
   // Register new user
   async register(req, res) {
@@ -16,7 +15,6 @@ class AuthController {
         phone,
         role = 'USER' // Default role if not specified
       } = req.body;
-
       // Validate required fields
       if (!username || !password || !email || !firstName || !lastName) {
         return res.status(400).json({
@@ -24,29 +22,28 @@ class AuthController {
           message: 'All required fields must be provided'
         });
       }
-
       // Check if username or email already exists
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [
             { username },
-            { email }
+            { email },
+            {phone}
           ]
         }
       });
-
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: existingUser.username === username ? 
-            'Username is already taken' : 
-            'Email is already registered'
+          message: existingUser.username === username 
+          ? 'Username is already taken' 
+          :existingUser.phone === phone
+          ? 'Phone number is already registered'
+          : 'Email is already registered'
         });
       }
-
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-
       // Create new user
       const newUser = await prisma.user.create({
         data: {
@@ -60,7 +57,6 @@ class AuthController {
           isActive: true // New users are active by default
         }
       });
-
       // Generate JWT token
       const token = jwt.sign(
         { 
@@ -101,19 +97,16 @@ class AuthController {
   async login(req, res) {
     try {
       const { username, password } = req.body;
-
       // Find user by username
       const user = await prisma.user.findUnique({
         where: { username }
       });
-
       if (!user) {
         return res.status(401).json({
           success: false,
           message: 'Invalid username or password'
         });
       }
-
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
@@ -122,7 +115,6 @@ class AuthController {
           message: 'Invalid username or password'
         });
       }
-
       // Check if user is active
       if (!user.isActive) {
         return res.status(403).json({
@@ -130,7 +122,6 @@ class AuthController {
           message: 'Account is inactive'
         });
       }
-
       // Generate JWT token
       const token = jwt.sign(
         { 
@@ -141,7 +132,6 @@ class AuthController {
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
-
       // Return success response
       res.json({
         success: true,
@@ -166,7 +156,6 @@ class AuthController {
       });
     }
   }
-
   // Logout endpoint
   async logout(req, res) {
     try {
@@ -184,12 +173,10 @@ class AuthController {
       });
     }
   }
-
   // Get current user profile
   async getProfile(req, res) {
     try {
       const userId = req.user.id; // From auth middleware
-
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -204,14 +191,12 @@ class AuthController {
           isActive: true
         }
       });
-
       if (!user) {
         return res.status(404).json({
           success: false,
           message: 'User not found'
         });
       }
-
       res.json({
         success: true,
         user

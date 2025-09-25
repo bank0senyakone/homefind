@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma  from '../config/prisma.js';
 class CheckInOutController {
   // Get all check-in/out records
   async getCheckInOuts(req, res) {
@@ -15,24 +13,20 @@ class CheckInOutController {
         page = 1, 
         limit = 20 
       } = req.query;
-
       // Build filter conditions
       const where = {};
       if (type) where.type = type;
       if (status) where.status = status;
       if (roomId) where.roomId = roomId;
       if (tenantId) where.tenantId = tenantId;
-      
       // Date range filter
       if (startDate || endDate) {
         where.date = {};
         if (startDate) where.date.gte = new Date(startDate);
         if (endDate) where.date.lte = new Date(endDate);
       }
-
       // Get total count for pagination
       const total = await prisma.checkInOut.count({ where });
-
       // Get records with pagination
       const records = await prisma.checkInOut.findMany({
         where,
@@ -85,7 +79,6 @@ class CheckInOutController {
       });
     }
   }
-
   // Process check-in
   async checkIn(req, res) {
     try {
@@ -96,7 +89,6 @@ class CheckInOutController {
         contractDetails,
         initialPayment
       } = req.body;
-
       // Validate room and tenant
       const [room, tenant] = await Promise.all([
         prisma.room.findUnique({
@@ -118,7 +110,6 @@ class CheckInOutController {
           message: 'Room or tenant not found'
         });
       }
-
       // Check if room is available
       if (room.tenants.length > 0) {
         return res.status(400).json({
@@ -126,7 +117,6 @@ class CheckInOutController {
           message: 'Room is already occupied'
         });
       }
-
       // Start transaction
       const result = await prisma.$transaction(async (prisma) => {
         // Create contract
@@ -146,7 +136,6 @@ class CheckInOutController {
             ownerPhone: contractDetails.ownerPhone
           }
         });
-
         // Create initial payment record
         const payment = await prisma.payment.create({
           data: {
@@ -163,7 +152,6 @@ class CheckInOutController {
             notes: 'Initial payment for check-in'
           }
         });
-
         // Create check-in record
         const checkIn = await prisma.checkInOut.create({
           data: {
@@ -177,7 +165,6 @@ class CheckInOutController {
             status: 'PENDING'
           }
         });
-
         // Update room and tenant status
         await Promise.all([
           prisma.room.update({
@@ -193,10 +180,8 @@ class CheckInOutController {
             }
           })
         ]);
-
         return { contract, payment, checkIn };
       });
-
       res.status(201).json({
         success: true,
         data: result
@@ -209,7 +194,6 @@ class CheckInOutController {
       });
     }
   }
-
   // Process check-out
   async checkOut(req, res) {
     try {
@@ -220,7 +204,6 @@ class CheckInOutController {
         inspection,
         damages = []
       } = req.body;
-
       // Validate room and tenant
       const [room, tenant, activeContract] = await Promise.all([
         prisma.room.findUnique({ where: { id: roomId } }),
@@ -233,18 +216,15 @@ class CheckInOutController {
           }
         })
       ]);
-
       if (!room || !tenant || !activeContract) {
         return res.status(404).json({
           success: false,
           message: 'Room, tenant or active contract not found'
         });
       }
-
       // Calculate total damage costs
       const totalDeduction = damages.reduce((sum, damage) => sum + damage.repairCost, 0);
       const depositReturned = Math.max(0, activeContract.deposit - totalDeduction);
-
       // Start transaction
       const result = await prisma.$transaction(async (prisma) => {
         // Create check-out record
@@ -268,13 +248,11 @@ class CheckInOutController {
             status: 'COMPLETED'
           }
         });
-
         // Update contract status
         await prisma.contract.update({
           where: { id: activeContract.id },
           data: { status: 'TERMINATED' }
         });
-
         // Update room and tenant status
         await Promise.all([
           prisma.room.update({
@@ -292,10 +270,8 @@ class CheckInOutController {
             }
           })
         ]);
-
         return checkOut;
       });
-
       res.json({
         success: true,
         data: result
@@ -308,7 +284,6 @@ class CheckInOutController {
       });
     }
   }
-
   // Update check-in/out status
   async updateStatus(req, res) {
     try {
@@ -325,7 +300,7 @@ class CheckInOutController {
           message: 'Check-in/out record not found'
         });
       }
-
+      
       // Update record
       const updatedRecord = await prisma.checkInOut.update({
         where: { id },

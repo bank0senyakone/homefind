@@ -1,5 +1,4 @@
 import prisma  from '../config/prisma.js';
-import fs from 'fs'
 import path from 'path';
 import PDFDocument from 'pdfkit';
 
@@ -279,49 +278,15 @@ class PaymentController {
       let finalPaidDate = null;
       let finalReceiptNumber = null;
       let finalReceiptUrl = null;
-      //
-      if (status === 'PAID') {
-        const dataObiect = new Date(paidDate);
-        //
-        if (isNaN(dataObiect.getTime())) {
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid paidDate'
-          });
-        }
-        finalPaidDate = dataObiect;
-      }
 
-      const newReceiptNumber = `RCPT-${Date.now()}`;
-      //
-      const uploadDir = path.join(path.resolve(),'receipts');
-      const fileName = `${newReceiptNumber}.pdf`;
-      const filePath = path.join(uploadDir, fileName);
-      //2.3
-      if (!fs.existsSync(uploadDir)){
-        fs.mkdirSync(uploadDir,{ recursive:true});
-      }
-      //2.4
-      const paymentDetails = {
-        billNumber: payment.billNumber,
-        totalAmount: payment.totalAmount,
-        description: payment.description,
-        tenantName: `${payment.tenant.firstName} ${payment.tenant.lastName}`,
-        roomNumber: payment.room ? payment.room.roomNumber : 'N/A'
-      }
-      //2.5 create pdf
-      await generateReceiptPdf(paymentDetails,filePath,newReceiptNumber);
-      //2.6
-      finalReceiptNumber = newReceiptNumber;
-      finalReceiptUrl = `/receipts/${fileName}`;
       // Update payment
       const updatedPayment = await prisma.payment.update({
         where: { id },
         data: {
           status,
-          paidDate: finalPaidDate,
-          receiptNumber: finalReceiptNumber,
-          receiptUrl: finalReceiptUrl,
+          paidDate: status === 'PAID' ? new Date(paidDate) : null,
+          receiptNumber: status === 'PAID' ? receiptNumber : null,
+          receiptUrl: status === 'PAID' ? receiptUrl : null,
           notes: notes || payment.notes
         }
       });

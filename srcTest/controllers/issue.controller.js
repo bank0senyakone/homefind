@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma  from '../config/prisma.js';
 class IssueController {
   // Get all issues with filtering and pagination
   async getIssues(req, res) {
