@@ -29,7 +29,7 @@ const generateReceiptPdf = (paymentDetails, filePath, receiptNumber) => {
         doc.text(`Amount: LAK ${paymentDetails.totalAmount.toLocaleString()}`);
         
         doc.moveDown(2);
-        doc.fontSize(16).text(`TOTAL PAID: LAK ${paymentDetails.totalAmount.toLocaleString()}`, { align: 'right' });
+        doc.fontSize(16).text(`ຈຳນວນເງີນລວມ: ກີບ ${paymentDetails.totalAmount.toLocaleString()}`, { align: 'right' });
 
         doc.end(); // ປິດ document ແລະບັນທຶກໄຟລ໌
     });
